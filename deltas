@@ -1,41 +1,56 @@
-#!/usr/bin/perl -an
+#!/usr/bin/perl -w
+use strict;
 
 # egrep 'Handler_(read|update)' qa/qa_update.log | tr -d '|' | deltas | column -t
 # cat global_0508121* | deltas -v | egrep -v '\+0\b' | column -t
 
-# Use -v as the first argument if you want vertical output, otherwise you get horizontal
+# Use -h as the first argument if you want vertical output, otherwise you get vertical
 
-BEGIN {
-    if ("$ARGV[0]" eq "-v") {
-        $output = "v";
-    } else {
+
+my %v;
+my $output = "v";
+if (defined $ARGV[0]) {
+    if ("$ARGV[0]" eq "-h") {
         $output = "h";
-    }
+    } 
     shift if $ARGV[0] =~ /^-/ && $ARGV[0] ne "--";
 }
 
-push @{$v{$F[0]}}, $F[1]; 
+while (<>) {
+    my @F = split(' ');
+    push @{$v{$F[0]}}, $F[1]; 
+}
 
-END {
-    @k = sort keys %v;
-    if ($output eq "v") {
-        for $k (@k) {
-            print "$k\t";
-            for ($n=0; $n < @{$v{$k}}; $n++) {
-                $p = $n > 0 ? "+" : "";
-                printf "%${p}d\t", $v{$k}[$n] - ($n ? $v{$k}[$n-1] : 0), "\t";
-            }
-            print "\n";
+sub prn($$) {
+    my $n = shift;
+    my $v = shift;
+    my $p = $n > 0 ? "+" : "";
+    printf "%${p}d\t", $v->[$n] - ($n ? $v->[$n-1] : 0), "\t";
+}
+
+sub lk($$) {
+}
+
+sub lv($$) {
+}
+
+my @k = sort keys %v;
+if ($output eq "v") {
+    for my $k (@k) {
+        print "$k\t";
+        for (my $n=0; $n < @{$v{$k}}; $n++) {
+            prn($n,$v{$k})
         }
-    } else {
-        print join "\t", @k;
         print "\n";
-        for ($n=0; $n < @{$v{$k[0]}}; $n++) { 
-            for $k (@k) { 
-                $p = $n > 0 ? "+" : "";
-                printf "%${p}d\t", $v{$k}[$n] - ($n ? $v{$k}[$n-1] : 0), "\t"; 
-            } 
-            print "\n";
-        }  
     }
+} else {
+    print join "\t", @k;
+    print "\n";
+    for (my $n=0; $n < @{$v{$k[0]}}; $n++) { 
+        my $p = $n > 0 ? "+" : "";
+        for my $k (@k) { 
+            prn($n,$v{$k})
+        } 
+        print "\n";
+    }  
 }
