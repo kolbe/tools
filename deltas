@@ -1,0 +1,41 @@
+#!/usr/bin/perl -an
+
+# egrep 'Handler_(read|update)' qa/qa_update.log | tr -d '|' | deltas | column -t
+# cat global_0508121* | deltas -v | egrep -v '\+0\b' | column -t
+
+# Use -v as the first argument if you want vertical output, otherwise you get horizontal
+
+BEGIN {
+    if ("$ARGV[0]" eq "-v") {
+        $output = "v";
+    } else {
+        $output = "h";
+    }
+    shift if $ARGV[0] =~ /^-/ && $ARGV[0] ne "--";
+}
+
+push @{$v{$F[0]}}, $F[1]; 
+
+END {
+    @k = sort keys %v;
+    if ($output eq "v") {
+        for $k (@k) {
+            print "$k\t";
+            for ($n=0; $n < @{$v{$k}}; $n++) {
+                $p = $n > 0 ? "+" : "";
+                printf "%${p}d\t", $v{$k}[$n] - ($n ? $v{$k}[$n-1] : 0), "\t";
+            }
+            print "\n";
+        }
+    } else {
+        print join "\t", @k;
+        print "\n";
+        for ($n=0; $n < @{$v{$k[0]}}; $n++) { 
+            for $k (@k) { 
+                $p = $n > 0 ? "+" : "";
+                printf "%${p}d\t", $v{$k}[$n] - ($n ? $v{$k}[$n-1] : 0), "\t"; 
+            } 
+            print "\n";
+        }  
+    }
+}
