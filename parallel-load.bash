@@ -82,10 +82,11 @@ for f in "${files[@]}"; do
 
 done
 
+echo "Waiting for PID $last_client to finish..." && wait $last_client
+
 for fifo in "${fifos[@]}"; do
     if ! rm "$fifo"; then
         echo "[WARNING] failed to remove fifo: $fifo" >&2
     fi
 done
 
-echo "Waiting for PID $last_client to finish..." && wait $last_client
