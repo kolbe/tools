@@ -28,12 +28,6 @@ sub prn($$) {
     printf "%${p}d\t", $v->[$n] - ($n ? $v->[$n-1] : 0), "\t";
 }
 
-sub lk($$) {
-}
-
-sub lv($$) {
-}
-
 my @k = sort keys %v;
 if ($output eq "v") {
     for my $k (@k) {

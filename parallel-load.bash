@@ -9,6 +9,9 @@
 
 # put mysql login information in a ~/.my.cnf file or other location where this script can read it
 
+# you can either use database= in a my.cnf file to tell the client what database to use or you can 
+# qualify the table name with a database prefix.
+
 threads=$1
 shift
 
@@ -22,12 +25,17 @@ offsets=(1)
 fifos=()
 
 if ! lock_mode=$(mysql -BNe 'select @@innodb_autoinc_lock_mode'); then
-    echo "[ERROR] couldn't get server information from MySQL. Aborting."
+    echo "[ERROR] couldn't get server information from MySQL. Aborting." >&2
+    exit 1
+fi
+
+if [[ $(mysql -BNe "select count(*) from information_schema.tables where concat(table_schema,'.',table_name) in (concat(database(),'.','$table'),'$table')") -ne 1 ]]; then
+    echo "[ERROR] table $table not found (or name is ambiguous). Aborting." >&2
     exit 1
 fi
 
 if ! has_auto_inc=$(mysql -BNe "select count(*) from information_schema.columns where concat(table_schema,'.',table_name) in (concat(database(),'.','$table'),'$table')  and extra like '%auto_increment%'"); then
-    echo "[ERROR] couldn't get table information from MySQL. Aborting."
+    echo "[ERROR] couldn't get table information from MySQL. Aborting." >&2
     exit 1
 fi
 
@@ -46,13 +54,18 @@ for ((t=0;t<threads;t++)); do
 done
 
 for f in "${files[@]}"; do 
+    if ! [[ -f "$f" ]]; then
+        echo "[ERROR] could not read file $f. Aborting." >&2
+        exit 1
+    fi
     read -r size _ < <(wc -c "$f")
     chunk_size=$((size / threads))
     printf "%i bytes total\n%i bytes per chunk\n%i threads\n" "$size" "$chunk_size" "$threads"
     for ((t=0;t<threads;t++)); do
         guess=$((offsets[t] + chunk_size))
-        extra=$(tail -c +"$guess" "$f" | head -n 1 | wc -c)
-        offsets+=($((guess + extra)))
+        IFS='' read -r extra < <(tail -c +"$guess" "$f")
+        extra_bytes=$((${#extra} + 1)) # account for newline
+        offsets+=($((guess + extra_bytes)))
     done
 
     for ((o=0;o<"${#offsets[@]}"-1;o++)); do
@@ -62,6 +75,7 @@ for f in "${files[@]}"; do
         tail -c +"$start" "$f" | head -c "$bytes" >> "$fifo" &
         printf "Thread #%i reading from %i for %i bytes in PID %i" "$o" "$start" "$bytes" "$!"
         mysql -e "LOAD DATA INFILE '$fifo' INTO TABLE $table" &
+        #cat "$fifo" > "part$o.csv" 
         printf " executed by mysql client PID %i\n" "$!"
         last_client=$!
     done
@@ -74,4 +88,4 @@ for fifo in "${fifos[@]}"; do
     fi
 done
 
-# echo "Waiting for PID $last_client to finish..." && wait $last_client
+echo "Waiting for PID $last_client to finish..." && wait $last_client
