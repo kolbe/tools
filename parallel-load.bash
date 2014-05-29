@@ -80,15 +80,15 @@ for f in "${files[@]}"; do
         fifo=${fifos[o]}
         tail -c +"$start" "$f" | head -c "$bytes" >> "$fifo" &
         printf "Thread #%i reading from %i for %i bytes in PID %i" "$o" "$start" "$bytes" "$!"
-        #mysql -e "LOAD DATA INFILE '$fifo' INTO TABLE $table" &
-        cat "$fifo" > "part$o.csv" &
+        mysql -e "LOAD DATA INFILE '$fifo' INTO TABLE $table" &
+        #cat "$fifo" > "part$o.csv" &
         printf " executed by mysql client PID %i\n" "$!"
         last_client=$!
     done
 
 done
 
-echo "Waiting for PID $last_client to finish..." && wait $last_client
+echo "Waiting for PID $last_client to finish..." && wait "$last_client"
 
 for fifo in "${fifos[@]}"; do
     if ! rm "$fifo"; then
