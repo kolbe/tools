@@ -63,8 +63,14 @@ for f in "${files[@]}"; do
     printf "%i bytes total\n%i bytes per chunk\n%i threads\n" "$size" "$chunk_size" "$threads"
     for ((t=0;t<threads;t++)); do
         guess=$((offsets[t] + chunk_size))
-        IFS='' read -r extra < <(tail -c +"$guess" "$f")
-        extra_bytes=$((${#extra} + 1)) # account for newline
+
+        #this approach uses more bash and less external stuff, but handling multi-byte in bash strings
+        #as well as the impossibility of storing NUL in a bash string make this dangerous
+        #IFS='' read -r extra < <(tail -c +"$guess" "$f")
+        #extra_bytes=$(LC_ALL=C; echo "${#extra}")
+        #extra_bytes=$((extra_bytes + 1)) # account for newline
+
+        extra_bytes=$(tail -c +"$guess" "$f" | head -n 1 | wc -c)
         offsets+=($((guess + extra_bytes)))
     done
 
@@ -74,8 +80,8 @@ for f in "${files[@]}"; do
         fifo=${fifos[o]}
         tail -c +"$start" "$f" | head -c "$bytes" >> "$fifo" &
         printf "Thread #%i reading from %i for %i bytes in PID %i" "$o" "$start" "$bytes" "$!"
-        mysql -e "LOAD DATA INFILE '$fifo' INTO TABLE $table" &
-        #cat "$fifo" > "part$o.csv" 
+        #mysql -e "LOAD DATA INFILE '$fifo' INTO TABLE $table" &
+        cat "$fifo" > "part$o.csv" &
         printf " executed by mysql client PID %i\n" "$!"
         last_client=$!
     done
