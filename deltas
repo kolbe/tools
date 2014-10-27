@@ -27,9 +27,9 @@ use Getopt::Std;
 
 
 my %v;
-my %opt = (h=>0,v=>0,n=>0);
+my %opt = (h=>0,v=>0,n=>0,Z=>0);
 
-getopts('hvn', \%opt);
+getopts('hvnZ', \%opt);
 
 if ($opt{v} and $opt{h}) {
     print STDERR "[ERROR]: -h and -v options conflict.\n";
@@ -48,7 +48,21 @@ sub prn($$) {
     printf "%${p}d\t", $v->[$n] - ($n ? $v->[$n-1] : 0), "\t";
 }
 
+if ($opt{Z}) {
+    for my $k (keys %v) {
+        my $l=$v{$k}->[0];
+        my $n=1;
+        while ($n < @{$v{$k}} and $l==$v{$k}->[$n]) {
+            $l=$v{$k}->[$n++];
+        }
+        if ($n==@{$v{$k}}) {
+            delete $v{$k};
+        }
+    }
+}
+
 my @k = sort keys %v;
+
 if ($opt{v}) {
     if ($opt{n}) {
         print "# \t";
