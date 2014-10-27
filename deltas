@@ -18,20 +18,22 @@
 # Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 use strict;
+use Getopt::Std;
 
 # egrep 'Handler_(read|update)' qa/qa_update.log | tr -d '|' | deltas | column -t
 # cat global_0508121* | deltas -v | egrep -v '\+0\b' | column -t
 
-# Use -h as the first argument if you want vertical output, otherwise you get vertical
+# Use -h if you want vertical output, otherwise you get vertical
 
 
 my %v;
-my $output = "v";
-if (defined $ARGV[0]) {
-    if ("$ARGV[0]" eq "-h") {
-        $output = "h";
-    } 
-    shift if $ARGV[0] =~ /^-/ && $ARGV[0] ne "--";
+my %opt = (h=>0,v=>0,n=>0);
+
+getopts('hvn', \%opt);
+
+if ($opt{v} and $opt{h}) {
+    print STDERR "[ERROR]: -h and -v options conflict.\n";
+    exit 1;
 }
 
 while (<>) {
@@ -47,7 +49,12 @@ sub prn($$) {
 }
 
 my @k = sort keys %v;
-if ($output eq "v") {
+if ($opt{v}) {
+    if ($opt{n}) {
+        print "# \t";
+        for (my $ln=0; $ln < @{$v{$k[0]}}; $ln++) { printf "%i\t", $ln+1; }
+        print "\n";
+    }
     for my $k (@k) {
         print "$k\t";
         for (my $n=0; $n < @{$v{$k}}; $n++) {
@@ -56,10 +63,15 @@ if ($output eq "v") {
         print "\n";
     }
 } else {
-    print join "\t", @k;
-    print "\n";
+    my $cols=`tput lines`||40;
+    my $ln=0;
+    #print "# \t" if $opt{n};
     for (my $n=0; $n < @{$v{$k[0]}}; $n++) { 
-        my $p = $n > 0 ? "+" : "";
+        if (not $n % ($cols - 5)) {
+            print "#\t" if $opt{n};
+            print join("\t", @k),"\n" 
+        } 
+        printf "%i\t", ++$ln if $opt{n};
         for my $k (@k) { 
             prn($n,$v{$k})
         } 
