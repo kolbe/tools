@@ -63,25 +63,28 @@ if ($opt{Z}) {
 
 my @k = sort keys %v;
 
+my $ln=0;
+my $rows=40;
+$rows=`tput lines`||40 if ($opt{n});
+
 if ($opt{v}) {
-    if ($opt{n}) {
-        print "# \t";
-        for (my $ln=0; $ln < @{$v{$k[0]}}; $ln++) { printf "%i\t", $ln+1; }
-        print "\n";
-    }
     for my $k (@k) {
+        if (not $ln % ($rows - 5) and $opt{n}) {
+            print "# \t";
+            for (my $i=0; $i < @{$v{$k[0]}}; $i++) { printf "%i\t", $i+1; }
+            print "\n\n";
+        }
         print "$k\t";
         for (my $n=0; $n < @{$v{$k}}; $n++) {
             prn($n,$v{$k})
         }
         print "\n";
+        $ln++;
     }
 } else {
-    my $cols=`tput lines`||40;
-    my $ln=0;
     #print "# \t" if $opt{n};
     for (my $n=0; $n < @{$v{$k[0]}}; $n++) { 
-        if (not $n % ($cols - 5)) {
+        if (not $n % ($rows - 5)) {
             print "#\t" if $opt{n};
             print join("\t", @k),"\n" 
         } 
