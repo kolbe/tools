@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# you must define and export slack_api_token in your shell's environment. get a token here: https://api.slack.com/web
+# you must have jq installed: http://stedolan.github.io/jq/
+
+usage() {
+    printf "Usage: [slack_api_token=<token>] %s <channel_name>\n" "$0"
+}
+
+abort() {
+    printf "[ERROR]: %s. Aborting.\n" "$1" >&2
+    [[ $- = *i* ]] || exit 1
+    return 1 
+}
+
+(($# == 1)) || abort "$(usage)"
+
+channel_name=$1
+shift
+
+[[ $slack_api_token ]] || abort "you must define and export slack_api_token before executing $0"
+
+type jq &>/dev/null || abort "you don't appear to have the jq tool: http://stedolan.github.io/jq/"
+
+# check environment for slack_users_list. if you source the slack_users_list script 
+# in your shell, it'll save the user list in your environment and save having 
+# to fetch it again every time you execute *this* script
+if [[ -z $slack_users_list ]]; then
+    slack_users_list=$(slack_fetch_list users) || abort "couldn't fetch users list"
+else
+    echo "[INFO]: using slack_users_list from environment." >&2
+fi
+
+# check environment for slack_channels_list. if you source the slack_channels_list script 
+# in your shell, it'll save the user list in your environment and save having 
+# to fetch it again every time you execute *this* script
+if [[ -z $slack_channels_list ]]; then
+    slack_channels_list=$(slack_fetch_list channels) || abort "couldn't fetch channels list"
+else
+    echo "[INFO]: using slack_channels_list from environment." >&2
+fi
+
+declare -A slack_users
+while IFS=: read -r id name; do 
+    slack_users[$id]=$name
+done <<<"$slack_users_list"
+
+declare -A slack_channels
+while IFS=: read -r name id; do 
+    slack_channels[$name]=$id
+done <<<"$slack_channels_list"
+
+[[ ${slack_channels[$channel_name]} ]] || abort "couldn't resolve channel name '$channel_name' to channel id"
+
+#echo "[INFO]: $channel_name is ${slack_channels[$channel_name]}" >&2
+
+curl --silent "https://slack.com/api/channels.history?token=${slack_api_token}&channel=${slack_channels[$channel_name]}" | 
+jq -e -r '.messages | sort_by(.ts) | .[] | "<"+(.user//.username)+(if .subtype=="bot_message" then "(bot)" else "" end)+"> "+.text' | 
+{ 
+    re='U[0-9A-Z]{8}'
+    while read -r ln; do 
+        while [[ $ln =~ $re ]]; do 
+            for m in "${BASH_REMATCH[@]}"; do 
+                v=${slack_users["$m"]}
+                ln=${ln//$m/$v}
+            done
+        done
+        printf "%s\n" "$ln"
+    done
+}

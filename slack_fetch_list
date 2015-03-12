@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+abort() {
+    printf "[ERROR]: %s. Aborting.\n" "$1" >&2
+    [[ $- = *i* ]] || exit 1
+    return 1 
+}
+
+for arg; do 
+
+    case $arg in
+        '') abort "you must specify an object type ('channels' or 'users')" ;;
+        c*) object=channels; filter='.channels[] | .name+":"+.id' ;;
+        u*) object=users; filter='.members[] | .id+":"+.name' ;;
+        *) abort "unknown object type '$1'";;
+    esac
+
+    slack_api_cmd(){
+        curl --silent "https://slack.com/api/$object.list?token=${slack_api_token:?}" | 
+        jq -r -e 'if .ok==true then '"$filter"' else error(.error) end' 2>&1
+        # maybe a future version of jq will provide some other mechanism for this, but
+        # i needed to force jq to exit with a non-zero exit code if the fetch from the API failed
+    }
+
+    if ! slack_api_output=$(slack_api_cmd); then
+        abort "couldn't fetch $object list ($slack_api_output)"
+    fi
+
+    if [[ $- = *i* ]]; then
+        # if the shell is interactive, that means this file is being "sourced",
+        # so we set a variable in the user's shell and export it. that basically
+        # makes a persistent cache of the object we fetched, which makes
+        # invocations of things like slack_channel_history *much* faster, since
+        # they do not have to fetch user and channel lists every time they run
+
+        # this is sort of ridiculous and may fail on older versions of bash...
+        declare -x "slack_${object}_list=$slack_api_output"
+
+        # here's another solution:
+        #printf -v "slack_${object}_list" %s "$slack_api_output"
+        #export "slack_${object}_list"
+
+        # and if none of those work, you should read http://mywiki.wooledge.org/BashFAQ/006
+    else
+        # if the shell is *not* interactive, this file is being executed, so we'll just dump
+        # the results to stdout and the caller can parse them as they see fit.
+        printf "%s\n" "$slack_api_output"
+    fi
+
+    unset slack_api_output
+    (($#>1)) && printf '\n'
+done
