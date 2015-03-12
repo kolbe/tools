@@ -1,10 +1,38 @@
 #!/usr/bin/env bash
+# Fetch list of various types of objects from Slack API
+# Copyright (C) 2015 Kolbe Kegel <kolbe@kolbekegel.com>
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+# this script gets a list of channels or users. if you source the script from an interactive shell,
+# it'll create exported environment variables. this facilitates a sort of caching that makes 
+# repeated invocation of scripts like slack_channel_history much faster. you can specify multiple
+# types of "objects", but that's really only useful if you are sourcing the script. if you execute
+# the script with multiple arguments, you'll have to look for a blank line in the output to switch
+# from parsing one of the objects to the next.
+# 
+# you must define and export slack_api_token in your shell's environment. get a token here: https://api.slack.com/web
+# you must have jq installed: http://stedolan.github.io/jq/
 
 abort() {
     printf "[ERROR]: %s. Aborting.\n" "$1" >&2
     [[ $- = *i* ]] || exit 1
     return 1 
 }
+
+type jq &>/dev/null || abort "you don't appear to have the jq tool: http://stedolan.github.io/jq/"
 
 for arg; do 
 

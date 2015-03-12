@@ -1,4 +1,27 @@
 #!/usr/bin/env bash
+# Get channel history for a Slack channel
+# 
+# Copyright (C) 2015 Kolbe Kegel <kolbe@kolbekegel.com>
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+# this script gets channel history from a Slack channel. give the channel nae as an argument.
+# you need to also have the slack_fetch_list script available, so that it can fetch lists
+# of users and channels to map your channel name to a channel ID and then map user IDs back to
+# nicknames
+# 
 # you must define and export slack_api_token in your shell's environment. get a token here: https://api.slack.com/web
 # you must have jq installed: http://stedolan.github.io/jq/
 
