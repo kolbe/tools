@@ -77,4 +77,5 @@ for arg; do
 
     unset slack_api_output
     (($#>1)) && printf '\n'
+    true # or failure of that argc check will cause script to exit with failure!
 done
