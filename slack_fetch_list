@@ -40,6 +40,7 @@ for arg; do
         '') abort "you must specify an object type ('channels' or 'users')" ;;
         c*) object=channels; filter='.channels[] | .name+":"+.id' ;;
         u*) object=users; filter='.members[] | .id+":"+.name' ;;
+        g*) object=groups; filter='.groups[] | .name+":"+.id' ;;
         *) abort "unknown object type '$1'";;
     esac
 
