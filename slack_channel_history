@@ -38,6 +38,7 @@ abort() {
 (($# == 1)) || abort "$(usage)"
 
 channel_name=$1
+channel_name="${channel_name#*#}"
 shift
 
 [[ $slack_api_token ]] || abort "you must define and export slack_api_token before executing $0"
@@ -72,21 +73,37 @@ while IFS=: read -r name id; do
     slack_channels[$name]=$id
 done <<<"$slack_channels_list"
 
+declare -A slack_reverse_channels
+for cname in "${!slack_channels[@]}"; do
+    cid=${slack_channels["$cname"]}
+    slack_reverse_channels["$cid"]=$cname
+done
+
 [[ ${slack_channels[$channel_name]} ]] || abort "couldn't resolve channel name '$channel_name' to channel id"
 
 #echo "[INFO]: $channel_name is ${slack_channels[$channel_name]}" >&2
 
 curl --silent "https://slack.com/api/channels.history?token=${slack_api_token}&channel=${slack_channels[$channel_name]}" | 
-jq -e -r '.messages | sort_by(.ts) | .[] | "<"+(.user//.username)+(if .subtype=="bot_message" then "(bot)" else "" end)+"> "+.text' | 
+jq -e -r '.messages | sort_by(.ts) | .[] | .ts+"\t<"+(.user//.username)+(if .subtype=="bot_message" then "(bot)" else "" end)+"> "+.text+"\u0000"' | 
 { 
-    re='U[0-9A-Z]{8}'
-    while read -r ln; do 
-        while [[ $ln =~ $re ]]; do 
+    user_re='U[0-9A-Z]{8}'
+    channel_re='<#(C[0-9A-Z]{8})>'
+    while IFS=$'\t' read -r -d '' ts ln; do 
+        while [[ $ln =~ $user_re ]]; do 
             for m in "${BASH_REMATCH[@]}"; do 
                 v=${slack_users["$m"]}
                 ln=${ln//$m/$v}
             done
         done
-        printf "%s\n" "$ln"
+        while [[ $ln =~ $channel_re ]]; do
+            #for m in "${BASH_REMATCH[@]}"; do
+                m=${BASH_REMATCH[0]}
+                c=${BASH_REMATCH[1]}
+                v="#${slack_reverse_channels["$c"]}"
+                ln=${ln//$m/$v}
+            #done
+        done
+        printf "%s %s\n" "$(date -j -f %s "${ts%.*}" +'%m/%d %H:%S')" "$ln"
     done
+
 }
