@@ -4,7 +4,7 @@ import sys
 
 def encode(string):
 
-    token= hashlib.sha1(string+'downloads').hexdigest()[0:10]
+    token= hashlib.sha1(string).hexdigest()#[0:10]
     num= int(token,16)
     encode=[
             '0','1','2','3','4','5','6','7','8','9',
@@ -14,14 +14,15 @@ def encode(string):
             'p','q','r','s','t',
             'v','w','x','y','z']
     o=''
-
-    while num > 0:
+    i=0
+    while num:
         v= num & 31
-        o= o+encode[v]
+        if i and i % 4 == 0: o+= '-'
+        o+= encode[v]
         num=num>>5
+        i+=1
 
-    encoded= o[:4]+'-'+o[4:]
-    return encoded
+    return o
 
 def decode(string):
     decode={
@@ -36,8 +37,7 @@ def decode(string):
     result=0
 
     for c in string[::-1]:
-        if c=='-':
-            continue
+        if c=='-': continue
         result = result << 5
         result += decode[c.lower()]
 
