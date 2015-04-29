@@ -4,7 +4,8 @@ import sys
 
 def encode(string):
 
-    token= hashlib.sha1(string).hexdigest()#[0:10]
+    #token= hashlib.sha1(string).hexdigest()#[0:10]
+    token= string.lower()
     num= int(token,16)
     encode=[
             '0','1','2','3','4','5','6','7','8','9',
@@ -17,8 +18,10 @@ def encode(string):
     i=0
     while num:
         v= num & 31
-        if i and i % 4 == 0: o+= '-'
-        o+= encode[v]
+        #if i and i % 4 == 0: o+= '-'
+        o= encode[v] + o
+        print num
+        print o
         num=num>>5
         i+=1
 
@@ -36,12 +39,14 @@ def decode(string):
 
     result=0
 
-    for c in string[::-1]:
+    for c in string:#[::-1]:
+        print result
+        print c
         if c=='-': continue
         result = result << 5
         result += decode[c.lower()]
 
-    decoded= "{0:x}".format(result).zfill(10)
+    decoded= "{0:x}".format(result)#.zfill(10)
 
     return decoded
 

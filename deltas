@@ -23,13 +23,18 @@ use Getopt::Std;
 # egrep 'Handler_(read|update)' qa/qa_update.log | tr -d '|' | deltas | column -t
 # cat global_0508121* | deltas -v | egrep -v '\+0\b' | column -t
 
-# Use -h if you want vertical output, otherwise you get vertical
+# -v to get "vertical" output (this is the default)
+# -h if you want "horizontal" output, otherwise you get vertical
+# -Z will exclude all rows that don't change at all across all iterations 
+# -s will output a summary at the end that shows the final value and the change across all outputs
+# -n controls output of header information
 
 
 my %v;
-my %opt = (h=>0,v=>0,n=>0,Z=>0);
+my %opt = (h=>0,v=>0,n=>0,Z=>0,s=>0);
 
-getopts('hvnZ', \%opt);
+
+getopts('hvsnZ', \%opt);
 
 if ($opt{v} and $opt{h}) {
     print STDERR "[ERROR]: -h and -v options conflict.\n";
@@ -38,7 +43,7 @@ if ($opt{v} and $opt{h}) {
 
 while (<>) {
     my @F = split(' ');
-    push @{$v{$F[0]}}, $F[1]; 
+    push @{$v{$F[0]}}, $F[1] if defined $F[0]; 
 }
 
 sub prn($$) {
@@ -48,11 +53,14 @@ sub prn($$) {
     printf "%${p}d\t", $v->[$n] - ($n ? $v->[$n-1] : 0), "\t";
 }
 
+# This will loop around through the entiiiiiire data set and remove any items that do not change at all from start to finish
 if ($opt{Z}) {
     for my $k (keys %v) {
         my $l=$v{$k}->[0];
+        # try to handle some case where arguments are non-numeric or undefined or something
+        delete $v{$k} and next if not defined $l;
         my $n=1;
-        while ($n < @{$v{$k}} and $l==$v{$k}->[$n]) {
+        while ($n < @{$v{$k}} and $l eq $v{$k}->[$n]) {
             $l=$v{$k}->[$n++];
         }
         if ($n==@{$v{$k}}) {
@@ -77,6 +85,11 @@ if ($opt{v}) {
         print "$k\t";
         for (my $n=0; $n < @{$v{$k}}; $n++) {
             prn($n,$v{$k})
+        }
+            #printf "%${p}d\t", $v->[$n] - ($n ? $v->[$n-1] : 0), "\t";
+        if ($opt{s}) {
+            printf "%d\t", $v{$k}->[-1];
+            printf "%+d\t", $v{$k}->[-1] - $v{$k}->[0];
         }
         print "\n";
         $ln++;

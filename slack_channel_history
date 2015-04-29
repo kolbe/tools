@@ -83,7 +83,9 @@ done
 
 #echo "[INFO]: $channel_name is ${slack_channels[$channel_name]}" >&2
 
-curl --silent "https://slack.com/api/channels.history?token=${slack_api_token}&channel=${slack_channels[$channel_name]}" | 
+count=100
+
+curl --silent "https://slack.com/api/channels.history?token=${slack_api_token}&channel=${slack_channels[$channel_name]}&count=$count" | 
 jq -e -r '.messages | sort_by(.ts) | .[] | .ts+"\t<"+(.user//.username)+(if .subtype=="bot_message" then "(bot)" else "" end)+"> "+.text+"\u0000"' | 
 { 
     user_re='U[0-9A-Z]{8}'
