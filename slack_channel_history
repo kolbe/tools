@@ -22,11 +22,11 @@
 # of users and channels to map your channel name to a channel ID and then map user IDs back to
 # nicknames
 # 
-# you must define and export slack_api_token in your shell's environment. get a token here: https://api.slack.com/web
+# you must define and export SLACK_API_TOKEN in your shell's environment. get a token here: https://api.slack.com/web
 # you must have jq installed: http://stedolan.github.io/jq/
 
 usage() {
-    printf "Usage: [slack_api_token=<token>] %s <channel_name>\n" "$0"
+    printf "Usage: [SLACK_API_TOKEN=<token>] %s <channel_name>\n" "$0"
 }
 
 abort() {
@@ -41,7 +41,7 @@ channel_name=$1
 channel_name="${channel_name#*#}"
 shift
 
-[[ $slack_api_token ]] || abort "you must define and export slack_api_token before executing $0"
+[[ $SLACK_API_TOKEN ]] || abort "you must define and export SLACK_API_TOKEN before executing $0"
 
 type jq &>/dev/null || abort "you don't appear to have the jq tool: http://stedolan.github.io/jq/"
 
@@ -85,7 +85,7 @@ done
 
 count=100
 
-curl --silent "https://slack.com/api/channels.history?token=${slack_api_token}&channel=${slack_channels[$channel_name]}&count=$count" | 
+curl --silent "https://slack.com/api/channels.history?token=${SLACK_API_TOKEN}&channel=${slack_channels[$channel_name]}&count=$count" | 
 jq -e -r '.messages | sort_by(.ts) | .[] | .ts+"\t<"+(.user//.username)+(if .subtype=="bot_message" then "(bot)" else "" end)+"> "+.text+"\u0000"' | 
 { 
     user_re='U[0-9A-Z]{8}'
@@ -105,7 +105,7 @@ jq -e -r '.messages | sort_by(.ts) | .[] | .ts+"\t<"+(.user//.username)+(if .sub
                 ln=${ln//$m/$v}
             #done
         done
-        printf "%s %s\n" "$(date -j -f %s "${ts%.*}" +'%m/%d %H:%S')" "$ln"
+        printf "%(%m/%d %H:%S)T %s\n" "${ts%.*}" "$ln"
     done
 
 }

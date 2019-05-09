@@ -23,7 +23,7 @@
 # the script with multiple arguments, you'll have to look for a blank line in the output to switch
 # from parsing one of the objects to the next.
 # 
-# you must define and export slack_api_token in your shell's environment. get a token here: https://api.slack.com/web
+# you must define and export SLACK_API_TOKEN in your shell's environment. get a token here: https://api.slack.com/web
 # you must have jq installed: http://stedolan.github.io/jq/
 
 abort() {
@@ -39,13 +39,13 @@ for arg; do
     case $arg in
         '') abort "you must specify an object type ('channels' or 'users')" ;;
         c*) object=channels; filter='.channels[] | .name+":"+.id' ;;
-        u*) object=users; filter='.members[] | .id+":"+.name' ;;
+        u*) object=users; filter='.members[] | .id+":"+.name+":"+.profile.email+":"+.profile.display_name+":"+.profile.real_name' ;;
         g*) object=groups; filter='.groups[] | .name+":"+.id' ;;
         *) abort "unknown object type '$1'";;
     esac
 
     slack_api_cmd(){
-        curl --silent "https://slack.com/api/$object.list?token=${slack_api_token:?}" | 
+        curl --silent "https://slack.com/api/$object.list?token=${SLACK_API_TOKEN:?}" | 
         jq -r -e 'if .ok==true then '"$filter"' else error(.error) end' 2>&1
         # maybe a future version of jq will provide some other mechanism for this, but
         # i needed to force jq to exit with a non-zero exit code if the fetch from the API failed
