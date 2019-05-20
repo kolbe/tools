@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+usage ()
+{
+    usage="Usage: $0 [-rotate <90>] [-yoyo <1|0>] [-size <'[300x300]'>] [-out <\$(date +%s).gif>] [-preview <ql>] image.jpg"
+    printf %s\\n "$usage"
+    exit
+}
+
+err(){
+    printf >&2 '[ERROR] %s\n' "$*"
+    exit 1
+}
+
+ql ()
+{
+        out=$(qlmanage -p "$@" 2>&1) || echo "$out"
+}
+
+(($#)) || usage
+
+cmd=(convert -loop 0)
+# default to 90º rotation by default
+rotate=90
+# default to going backwards at the end of the video
+yoyo=1
+# default to re-sizing on read to fit in a 300x300 box
+size='[300x300]'
+# should we preview (open) the .gif after generating it?
+preview=ql
+# (default outfile set after option processing)
+outfile=
+
+while :; do
+    case $1 in
+        -h)
+            usage
+            ;;
+        -rotate)
+            rotate=$2
+            shift
+            ;;
+        -yoyo)
+            yoyo=1
+            ;;
+        -out)
+            outfile=$2
+            shift
+            ;;
+        -size)
+            size=$2
+            shift
+            ;;
+        -preview)
+            preview=$2
+            shift
+            ;;
+        *)
+            break
+    esac
+    shift
+done
+
+cmd+=( -rotate "$rotate" )
+
+# default outfile is current timestamp in seconds to try to prevent chaos and overwrites
+[[ $outfile ]] || outfile=$(date +%s).gif
+[[ -e $outfile ]] && err "Outfile $outfile already exists"
+
+frames=();
+
+if (($# == 1)); then
+    infile=$1;
+    [[ -f $infile ]] || err "Infile should be a single, existing image file ('$infile' is not a file)"
+
+    ttime=$(stat -t %s -f %m "$infile");
+
+    for f in "${infile%/*}"/* ;
+    do
+        ctime=$(stat -t %s -f %m "$f");
+        if (( ctime >= ttime-1 && ctime <=ttime+1 )); then
+            frames+=( "${f}${size}" );
+        fi;
+    done;
+else
+    for f; do
+        [[ -f $f ]] || err "Infile '$infile' does not exist"
+        frames+=( "${f}${size}" );
+    done
+fi
+
+if ((yoyo)); then
+    for ((i=${#frames[@]};i>0;)); do
+        frames+=( "${frames[--i]}" )
+    done
+fi 
+
+# printf "%q " "${cmd[@]}" "${frames[@]}" "$outfile"; printf \\n
+"${cmd[@]}" "${frames[@]}" "$outfile";
+[[ $preview ]] && eval "$preview" "$outfile"
