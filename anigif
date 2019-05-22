@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 usage ()
 {
-    usage="Usage: $0 [-rotate <90>] [-yoyo <1|0>] [-size <'[300x300]'>] [-out <\$(date +%s).gif>] [-preview <ql>] image.jpg"
+    usage="Usage: $0 [-rotate <90>] [-yoyo <1|0>] [-size <'[300x300]'>] [-out <\$(date +%s).gif>] [-preview <ql>] <image.jpg>|<image.jpg,...>
+
+    -rotate <90> specifies degree of rotation (default 90)
+    -yoyo <1|0> should gif reverse frames to provide back-and-forth (yoyo) effect (default true)
+    -size <'[300x300]'> size of bounding box for frames to fit in (default 300x300)
+    -out <output.gif> name of output file (default unix_epoch_timestamp.gif)
+    -preview <cmd> command to execute to view output .gif
+
+    Input file(s) can be a single image file, in which case all files within a second +/- its timestamp will be used as input files. Or you can give a list of input files that will be considered individually to be the frames of the output file.
+    "
     printf %s\\n "$usage"
     exit
 }
@@ -16,8 +25,11 @@ ql ()
         out=$(qlmanage -p "$@" 2>&1) || echo "$out"
 }
 
+command -v convert &>/dev/null || err "You must have the ''convert'' tool from ImageMagick in your PATH."
+
 (($#)) || usage
 
+# base comma d to which we append aadditional arguments
 cmd=(convert -loop 0)
 # default to 90º rotation by default
 rotate=90
