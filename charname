@@ -1,0 +1,14 @@
+#!/usr/bin/env perl -wCA
+use strict;
+use diagnostics;
+
+use utf8;
+use charnames ':full';
+
+binmode STDOUT, ':utf8';
+
+foreach my $arg (@ARGV) {
+    my $cp = ord $arg;
+    my $name = charnames::viacode( $cp );
+    print "$arg\t$cp\t$name\n";
+}
