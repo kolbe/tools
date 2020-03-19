@@ -34,10 +34,11 @@ abort() {
 
 type jq &>/dev/null || abort "you don't appear to have the jq tool: http://stedolan.github.io/jq/"
 
+[[ $1 ]] || abort "you must specify an object type ('channels' or 'users')"
+
 for arg; do 
 
     case $arg in
-        '') abort "you must specify an object type ('channels' or 'users')" ;;
         c*) object=channels; filter='.channels[] | .name+":"+.id' ;;
         u*) object=users; filter='.members[] | .id+":"+.name+":"+.profile.email+":"+.profile.display_name+":"+.profile.real_name' ;;
         g*) object=groups; filter='.groups[] | .name+":"+.id' ;;
@@ -62,8 +63,17 @@ for arg; do
         # invocations of things like slack_channel_history *much* faster, since
         # they do not have to fetch user and channel lists every time they run
 
-        # this is sort of ridiculous and may fail on older versions of bash...
         declare -x "slack_${object}_list=$slack_api_output"
+
+        # this is an associative array version, which only works in bash 4+ 
+        if (( BASH_VERSINFO[0] >= 4 )); then
+            varname=slack_${object}
+            unset "$varname"
+            declare -A "$varname"
+            while IFS=: read -r k v; do
+                printf -v "$varname[$k]" %s "$v"
+            done <<<"$slack_api_output"
+        fi
 
         # here's another solution:
         #printf -v "slack_${object}_list" %s "$slack_api_output"
