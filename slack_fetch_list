@@ -46,8 +46,13 @@ for arg; do
     esac
 
     slack_api_cmd(){
-        curl --silent "https://slack.com/api/$object.list?token=${SLACK_API_TOKEN:?}" | 
-        jq -r -e 'if .ok==true then '"$filter"' else error(.error) end' 2>&1
+        local cursor= temp=
+        while true; do
+            temp=$( curl --silent "https://slack.com/api/$object.list?token=${SLACK_API_TOKEN:?}&cursor=$cursor" ) || return
+            cursor=$( jq .response_metadata.next_cursor <<<"$temp" )
+            jq -r -e 'if .ok==true then '"$filter"' else error(.error) end' 2>&1 <<<"$temp" || return
+            [[ $cursor = null ]] && break
+        done
         # maybe a future version of jq will provide some other mechanism for this, but
         # i needed to force jq to exit with a non-zero exit code if the fetch from the API failed
     }
