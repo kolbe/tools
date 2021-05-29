@@ -70,16 +70,14 @@ else:
     vpc_id = args.vpc_id
     print(vpc_id + ' (from default)')
 
+tags = [ {'Key': 'Owner', 'Value': args.owner_tag},
+        {'Key': 'Name', 'Value': args.cluster_name} ]
 
 # vpc creation is a minefield because of very low VPC limits and internet gateway creation
 '''
 vpc_template = {
         'CidrBlock': args.vpc_cidr,
-        'TagSpecifications':[{'ResourceType': 'vpc',
-            'Tags': [
-                {'Key': 'Owner', 'Value': args.owner_tag},
-                {'Key': 'Name', 'Value': args.cluster_name}],
-        }]
+        'TagSpecifications':[{'ResourceType': 'vpc', 'Tags': tags, }]
 }
 
 else:
@@ -97,12 +95,6 @@ ec2.describe_availability_zones(ZoneNames=args.availability_zones)
 #print(args)
 #sys.exit(1)
 
-subnet_template = {
-        'AvailabilityZone': 'us-west-2d',
-        'CidrBlock': None,
-        'Tags': [{'Key': 'Name', 'Value': args.cluster_name}],
-        'VpcId': vpc_id
-}
 
 
 subnets=[]
@@ -111,11 +103,7 @@ for i, az in enumerate(args.availability_zones, start=1):
     subnet_template = {
             'AvailabilityZone': az,
             'CidrBlock': subnet_ranges[args.subnet_offset + i].exploded,
-            'TagSpecifications':[{'ResourceType': 'subnet',
-                'Tags': [
-                    {'Key': 'Owner', 'Value': args.owner_tag},
-                    {'Key': 'Name', 'Value': '{}-{}'.format(args.cluster_name,az)}],
-                }],
+            'TagSpecifications':[{'ResourceType': 'subnet', 'Tags': tags, }],
             'VpcId': vpc_id
     }
     try:
@@ -150,11 +138,7 @@ sg = ec2.create_security_group(
         VpcId = vpc_id,
         Description = args.cluster_name,
         GroupName = args.cluster_name,
-        TagSpecifications=[{'ResourceType': 'security-group',
-                'Tags': [
-                    {'Key': 'Owner', 'Value': args.owner_tag},
-                    {'Key': 'Name', 'Value': args.cluster_name}],
-                }],
+        TagSpecifications=[{'ResourceType': 'security-group', 'Tags': tags, }],
 )
 sg_id = sg['GroupId']
 print(sg_id)
@@ -181,11 +165,7 @@ instance_template = {
         'InstanceType': args.instance_type,
         'KeyName': args.key_name ,
         'ImageId': 'ami-0ca5c3bd5a268e7db',
-        'TagSpecifications': [{'ResourceType': 'instance',
-            'Tags': [
-                {'Key': 'Owner', 'Value': args.owner_tag},
-                {'Key': 'Name', 'Value': args.cluster_name},
-        ]}],
+        'TagSpecifications': [{'ResourceType': 'instance', 'Tags': tags }],
         'BlockDeviceMappings': [{
             'DeviceName': '/dev/sda1',
             'Ebs': {

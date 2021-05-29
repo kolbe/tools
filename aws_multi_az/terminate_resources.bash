@@ -39,4 +39,10 @@ destroy_resources()(
     done
 )
 
+
 destroy_resources
+
+echo "checking for remaining resources in CLUSTER_NAME=$CLUSTER_NAME"
+aws ec2 describe-instances --filter Name=tag:Name,Values="$CLUSTER_NAME" --filter Name=instance-state-name,Values=running
+aws ec2 describe-subnets --filter Name=tag:Name,Values="$CLUSTER_NAME"
+aws ec2 describe-security-groups --filter Name=tag:Name,Values="$CLUSTER_NAME"
