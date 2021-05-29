@@ -4,13 +4,13 @@
 
 Resources deployed:
 * 1 security group
-** allows all TCP/UDP communication between nodes in the cluster
-** allows all TCP/UDP communication from your public IP address to all nodes in the cluster
-** allows SSH connections from any IP
+    * allows all TCP/UDP communication between nodes in the cluster
+    * allows all TCP/UDP communication from your public IP address to all nodes in the cluster
+    * allows SSH connections from any IP
 * 1 subnet for each AZ in `--availability-zones`
-** each of these is in a different AZ
-** each of these distributes IPs in different ranges
-** if the subnet ranges conflict with your existing subnets, you can edit `subnet_offset` in the program to have it use higher ranges
+    * each of these is in a different AZ
+    * each of these distributes IPs in different ranges
+    * if the subnet ranges conflict with your existing subnets, you can edit `subnet_offset` in the program to have it use higher ranges
 * `--instances-per-az` x `len(--availability-zones)` instances
 
 `build_topology.py` gets the information about the deployed instances and emits YAML to stdout that can be used by TiUP to deploy a cluster. It emits to stdout some handy commands that can be copied and pasted in order to connect to the "management node" using SSH. You need to set the `CLUSTER_NAME` environment variable so that `build_topology.py` can identify the resources deployed by `deploy_resources.py`.
