@@ -8,6 +8,7 @@ import urllib.request
 from collections import defaultdict
 
 import boto3
+import botocore.exceptions
 
 def comma_list(values):
     return values.split(',')
@@ -15,11 +16,10 @@ def comma_list(values):
 parser = argparse.ArgumentParser(description='Deploy multi-AZ resources to AWS')
 parser.add_argument('-k', '--key-name', type=str,
         help='The name of the EC2 keypair you will use to connect to the instances', required=True)
-parser.add_argument('-v', '--vpc-id', type=str,
-        help='The ID of the VPC you want to deploy to', required=True)
 parser.add_argument('-n', '--cluster-name', type=str,
         help='The Name tag of the resources we deploy (default %(default)s)',
         default=os.getenv('USER')+"-tiup-multi-az-"+time.strftime('%s'))
+parser.add_argument('--vpc-id', type=str, help='The ID of the VPC you want to deploy to')
 parser.add_argument('--availability-zones', type=comma_list,
         help='Comma-separated list of AZs to deploy to ' +
              '(default %(default)s)',
@@ -34,6 +34,8 @@ parser.add_argument('--instance-type', type=str,
 parser.add_argument('--subnet-offset', type=int,
         help='Set this to a positive integer if you need to avoid some ' +
              'IP ranges already allocated to existing subnets', default=1)
+parser.add_argument('--subnet-prefix', type=int,
+        help='The CIDR prefix for the new subnets created (default %(default)d)', default=24)
 parser.add_argument('--disk-size', type=int,
         help='Size in GB of root EBS volume (default %(default)d)', default=64)
 parser.add_argument('--public-ip', type=str,
@@ -52,18 +54,25 @@ if not any( key['KeyName']==args.key_name for key in ec2.describe_key_pairs()['K
     print('KeyPair "{}" could not be found'.format(args.key_name), file=sys.stderr)
     sys.exit(1)
 
-vpc = [vpc for vpc in ec2.describe_vpcs()['Vpcs'] if vpc['VpcId']==args.vpc_id]
-if len(vpc):
-    args.vpc_cidr = vpc[0]['CidrBlock']
+if args.vpc_id:
+    vpc = [vpc for vpc in ec2.describe_vpcs()['Vpcs'] if vpc['VpcId']==args.vpc_id]
+    if len(vpc):
+        args.vpc_cidr = vpc[0]['CidrBlock']
+    else:
+        print('VPC "{}" could not be found'.format(args.vpc_id), file=sys.stderr)
+        sys.exit(1)
+    vpc_id = args.vpc_id
+    print(vpc_id + ' (from command-line option)')
 else:
-    print('VPC "{}" could not be found'.format(args.vpc_id), file=sys.stderr)
-    sys.exit(1)
+    vpc = ec2.describe_vpcs(Filters=[{'Name':'isDefault', 'Values':['true']}])['Vpcs'][0]
+    args.vpc_id = vpc['VpcId']
+    args.vpc_cidr = vpc['CidrBlock']
+    vpc_id = args.vpc_id
+    print(vpc_id + ' (from default)')
 
-ec2.describe_availability_zones(ZoneNames=args.availability_zones)
 
-#print(args)
-#sys.exit(1)
-
+# vpc creation is a minefield because of very low VPC limits and internet gateway creation
+'''
 vpc_template = {
         'CidrBlock': args.vpc_cidr,
         'TagSpecifications':[{'ResourceType': 'vpc',
@@ -73,15 +82,69 @@ vpc_template = {
         }]
 }
 
-if args.vpc_id:
-    vpc_id = args.vpc_id
-    print(vpc_id + ' (from command-line option)')
 else:
     vpc = ec2.create_vpc( **vpc_template )
     vpc_id = vpc['Vpc']['VpcId']
     print(vpc_id)
     waiter = ec2.get_waiter('vpc_available')
     waiter.wait(VpcIds=[vpc_id])
+'''
+
+
+# This will throw an Exception of any of the provided AZ names are bogus
+ec2.describe_availability_zones(ZoneNames=args.availability_zones)
+
+#print(args)
+#sys.exit(1)
+
+subnet_template = {
+        'AvailabilityZone': 'us-west-2d',
+        'CidrBlock': None,
+        'Tags': [{'Key': 'Name', 'Value': args.cluster_name}],
+        'VpcId': vpc_id
+}
+
+
+subnets=[]
+subnet_ranges = list(ipaddress.ip_network(args.vpc_cidr).subnets(new_prefix=args.subnet_prefix))
+for i, az in enumerate(args.availability_zones, start=1):
+    subnet_template = {
+            'AvailabilityZone': az,
+            'CidrBlock': subnet_ranges[args.subnet_offset + i].exploded,
+            'TagSpecifications':[{'ResourceType': 'subnet',
+                'Tags': [
+                    {'Key': 'Owner', 'Value': args.owner_tag},
+                    {'Key': 'Name', 'Value': '{}-{}'.format(args.cluster_name,az)}],
+                }],
+            'VpcId': vpc_id
+    }
+    try:
+        subnet = ec2.create_subnet(**subnet_template)
+    except botocore.exceptions.ClientError as error:
+        if error.response['Error']['Code'] == 'InvalidSubnet.Conflict':
+            subnets = ec2.describe_subnets(Filters=[{'Name':'vpcId','Values':[vpc_id]}])['Subnets']
+            print(error, file=sys.stderr)
+            cidr_blocks = [s['CidrBlock'] for s in subnets]
+            print('These are the existing subnets in VPC {}: '.format(args.vpc_id) + ', '.join(sorted(cidr_blocks)), file=sys.stderr)
+            # Try to see if all the existing subnets have the same prefix! If so, we can safely calculate the next address.
+            # If not... *shrug* ...?
+            p = None
+            for c in cidr_blocks:
+                n = ipaddress.ip_network(c)
+                if p is None:
+                    p = n.prefixlen
+                elif n.prefixlen != p:
+                    print('Existing subnets have inconsistent prefix, please create a new VPC')
+                    sys.exit(1)
+            print('Try --subnet-offset={}'.format( pow(2,(32-p))*len(subnets) // pow(2,32-args.subnet_prefix) ), file=sys.stderr)
+            sys.exit(1)
+        else:
+            raise error
+
+    print(subnet['Subnet']['SubnetId'])
+    subnets.append(subnet['Subnet']['SubnetId'])
+waiter = ec2.get_waiter('subnet_available')
+waiter.wait(SubnetIds=subnets)
 
 sg = ec2.create_security_group(
         VpcId = vpc_id,
@@ -114,14 +177,6 @@ sg_ingress_template = {
         }
 ec2.authorize_security_group_ingress(**sg_ingress_template)
 
-subnet_template = {
-        'AvailabilityZone': 'us-west-2d',
-        'CidrBlock': None,
-        'Tags': [{'Key': 'Name', 'Value': args.cluster_name}],
-        'VpcId': vpc_id
-}
-
-
 instance_template = {
         'InstanceType': args.instance_type,
         'KeyName': args.key_name ,
@@ -150,25 +205,6 @@ instance_template = {
         'MinCount': args.instances_per_az,
         'MaxCount': args.instances_per_az
     }
-
-subnets=[]
-subnet_ranges = list(ipaddress.ip_network(args.vpc_cidr).subnets(new_prefix=24))
-for i, az in enumerate(args.availability_zones, start=1):
-    subnet_template = {
-            'AvailabilityZone': az,
-            'CidrBlock': subnet_ranges[args.subnet_offset + i].exploded,
-            'TagSpecifications':[{'ResourceType': 'subnet',
-                'Tags': [
-                    {'Key': 'Owner', 'Value': args.owner_tag},
-                    {'Key': 'Name', 'Value': '{}-{}'.format(args.cluster_name,az)}],
-                }],
-            'VpcId': vpc_id
-    }
-    subnet = ec2.create_subnet(**subnet_template)
-    print(subnet['Subnet']['SubnetId'])
-    subnets.append(subnet['Subnet']['SubnetId'])
-waiter = ec2.get_waiter('subnet_available')
-waiter.wait(SubnetIds=subnets)
 
 instances=[]
 for subnet in subnets:

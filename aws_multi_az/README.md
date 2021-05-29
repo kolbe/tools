@@ -10,7 +10,14 @@ Resources deployed:
 * 1 subnet for each AZ in `--availability-zones`
     * each of these is in a different AZ
     * each of these distributes IPs in different ranges
-    * if the subnet ranges conflict with your existing subnets, you can edit `subnet_offset` in the program to have it use higher ranges
+    * if the subnet ranges conflict with your existing subnets, you can set `--subnet-offset` in the program to have it use higher ranges
+        * the default subnet prefix for this program is `/24`, which provides for a clear visual separation between subnets by giving each AZ its own octet
+        * you can set `--subnet-prefix` to a higher number to give each subnet a smaller number of IP addresses
+        * to calculate the correct subnet offset to not conflict with your existing subnets, identify the prefix and number of existing subnets and apply this formula:
+          > pow(2, (32 - prefix) * <number of subnets>) / pow(2, (32 - <new subnet prefix>))
+        * a default VPC with 4 default AZ subnets with `/20` prefixes will require `--subnet-offset=64`
+          > echo $(( 2**(32-20)*4 / 2**(32-24) ))
+          > python3 -c 'print(pow(2,(32-20))*4 // pow(2,32-24))'
 * `--instances-per-az` x `len(--availability-zones)` instances
 
 `build_topology.py` gets the information about the deployed instances and emits YAML to stdout that can be used by TiUP to deploy a cluster. It emits to stdout some handy commands that can be copied and pasted in order to connect to the "management node" using SSH. You need to set the `CLUSTER_NAME` environment variable so that `build_topology.py` can identify the resources deployed by `deploy_resources.py`.
