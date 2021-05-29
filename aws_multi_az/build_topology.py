@@ -59,5 +59,5 @@ for k in sorted(instance_details.keys()):
             template['tikv_servers'].append(host(instance, config={'server.labels': {'zone': instance['Placement']['AvailabilityZone']}}))
 
 print(yaml.dump(template))
-print('ssh -o StrictHostKeyChecking=accept-new -l {} {}'.format('ubuntu', management_node), file=sys.stderr)
-print('curl --proto =https --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh', file=sys.stderr)
+print('echo \'curl --proto =https --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh\' |', file=sys.stderr)
+print('ssh -o StrictHostKeyChecking=accept-new {}@{}'.format('ubuntu', management_node), file=sys.stderr)
