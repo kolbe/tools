@@ -40,12 +40,6 @@ parser.add_argument('--instances-per-az', type=int,
         help='The number of instances per AZ (default %(default)d)', default=3)
 parser.add_argument('--instance-ami', type=str,
         help='The EC2 instance AMI to use (default %(default)s)', default='ami-038a0ccaaedae6406')
-        '''
-        aws ec2 describe-images --owners 099720109477  --output text  \
-               --query 'sort_by(Images, &CreationDate)[-1].ImageId' \
-               --filter Name=architecture,Values=x86_64 \
-               Name=name,Values='ubuntu/images/hvm-ssd/ubuntu-focal-20.04*'
-        '''
 parser.add_argument('--instance-type', type=str,
         help='The EC2 instance type to use (default %(default)s)', default='m5.2xlarge')
 parser.add_argument('--subnet-offset', type=int,
