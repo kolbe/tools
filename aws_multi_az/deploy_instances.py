@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+'''
+deploy_instances.py is a simple program to deploy a set of instances to AWS EC2
+
+Consult README.md for more information.
+'''
+
 import argparse
 import ipaddress
 import os
@@ -11,6 +17,9 @@ import boto3
 import botocore.exceptions
 
 def comma_list(values):
+    '''
+    comma_list() is used to represent a type for the --availability-zones argument
+    '''
     return values.split(',')
 
 parser = argparse.ArgumentParser(description='Deploy multi-AZ resources to AWS')
@@ -29,6 +38,11 @@ parser.add_argument('--owner-tag', type=str,
              '(default %(default)s)', default=os.getenv('USER'))
 parser.add_argument('--instances-per-az', type=int,
         help='The number of instances per AZ (default %(default)d)', default=3)
+parser.add_argument('--instance-ami', type=str,
+        help='The EC2 instance AMI to use (default %(default)s)', default='ami-0ca5c3bd5a268e7db')
+        # aws ec2 describe-images --owners 099720109477 \
+        #       --filter Name=name,Values='ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server*' \
+        #       --query 'sort_by(Images, &CreationDate)[-1].ImageId'
 parser.add_argument('--instance-type', type=str,
         help='The EC2 instance type to use (default %(default)s)', default='m5.2xlarge')
 parser.add_argument('--subnet-offset', type=int,
@@ -49,6 +63,8 @@ parser.add_argument('--vpc-cidr', type=str,
 args = parser.parse_args()
 
 ec2 = boto3.client('ec2')
+
+print('Creating cluster {}'.format(args.cluster_name))
 
 if not any( key['KeyName']==args.key_name for key in ec2.describe_key_pairs()['KeyPairs'] ):
     print('KeyPair "{}" could not be found'.format(args.key_name), file=sys.stderr)
@@ -113,9 +129,10 @@ for i, az in enumerate(args.availability_zones, start=1):
             subnets = ec2.describe_subnets(Filters=[{'Name':'vpcId','Values':[vpc_id]}])['Subnets']
             print(error, file=sys.stderr)
             cidr_blocks = [s['CidrBlock'] for s in subnets]
-            print('These are the existing subnets in VPC {}: '.format(args.vpc_id) + ', '.join(sorted(cidr_blocks)), file=sys.stderr)
-            # Try to see if all the existing subnets have the same prefix! If so, we can safely calculate the next address.
-            # If not... *shrug* ...?
+            print('These are the existing subnets in VPC {}: {}'.format(
+                args.vpc_id, ', '.join(sorted(cidr_blocks))), file=sys.stderr)
+            # Try to see if all the existing subnets have the same prefix!
+            # If so, we can safely calculate the next address. If not... *shrug* ...?
             p = None
             for c in cidr_blocks:
                 n = ipaddress.ip_network(c)
@@ -124,7 +141,8 @@ for i, az in enumerate(args.availability_zones, start=1):
                 elif n.prefixlen != p:
                     print('Existing subnets have inconsistent prefix, please create a new VPC')
                     sys.exit(1)
-            print('Try --subnet-offset={}'.format( pow(2,(32-p))*len(subnets) // pow(2,32-args.subnet_prefix) ), file=sys.stderr)
+            print('Try --subnet-offset={}'.format(
+                pow(2,(32-p))*len(subnets) // pow(2,32-args.subnet_prefix) ), file=sys.stderr)
             sys.exit(1)
         else:
             raise error
@@ -164,13 +182,13 @@ ec2.authorize_security_group_ingress(**sg_ingress_template)
 instance_template = {
         'InstanceType': args.instance_type,
         'KeyName': args.key_name ,
-        'ImageId': 'ami-0ca5c3bd5a268e7db',
+        'ImageId': args.instance_ami,
         'TagSpecifications': [{'ResourceType': 'instance', 'Tags': tags }],
         'BlockDeviceMappings': [{
             'DeviceName': '/dev/sda1',
             'Ebs': {
                 'DeleteOnTermination': True,
-                'SnapshotId': 'snap-09d3a0caf8c20b475',
+                #'SnapshotId': 'snap-09d3a0caf8c20b475',
                 'VolumeSize': args.disk_size,
                 'VolumeType': 'gp2'
             }}],

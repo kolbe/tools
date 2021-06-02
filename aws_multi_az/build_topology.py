@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-import boto3, ipaddress, os, sys, yaml
+import ipaddress, os, sys
 from collections import defaultdict
+
+import boto3
+import yaml
 
 if os.getenv('CLUSTER_NAME'):
     cluster_name = os.getenv('CLUSTER_NAME')
@@ -40,7 +43,7 @@ alertmanager_servers: []
 template = yaml.safe_load(template_yaml)
 
 def host(instance, **kwargs):
-	return {'host':instance['PrivateIpAddress'], **kwargs}
+    return {'host':instance['PrivateIpAddress'], **kwargs}
 
 management_node=''
 for k in sorted(instance_details.keys()):
@@ -49,11 +52,11 @@ for k in sorted(instance_details.keys()):
         if management_node == '':
             for section in ['monitoring_servers', 'grafana_servers', 'alertmanager_servers']:
                 management_node = instance['PublicIpAddress']
-                template[section].append(host(instance)) 
+                template[section].append(host(instance))
         # After management node is defined, the "first" node in each AZ will be a tidb/pd node
         elif i==0:
             for section in ['tidb_servers', 'pd_servers']:
-                template[section].append(host(instance)) 
+                template[section].append(host(instance))
         # All other nodes will be tikv nodes
         else:
             template['tikv_servers'].append(host(instance, config={'server.labels': {'zone': instance['Placement']['AvailabilityZone']}}))
