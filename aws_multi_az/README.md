@@ -30,7 +30,12 @@ Resources deployed:
           > `python3 -c 'print(pow(2,(32-20))*4 // pow(2,32-24))'`
 * `--instances-per-az` x `len(--availability-zones)` instances
   * by default, 3 x 4 = 12 instances will be created
-
+  * to get the most up-to-date Ubuntu 20.04 AMI for x86_64, you can use this command:
+    >     aws ec2 describe-images --owners 099720109477  --output text  \
+    >     --query 'sort_by(Images, &CreationDate)[-1].ImageId' \
+    >     --filter Name=architecture,Values=x86_64 \
+    >     Name=name,Values='ubuntu/images/hvm-ssd/ubuntu-focal-20.04*'
+  
 The only mandatory option to `deploy_resources.py` is `-k`/`--key-name`, which is the *name* (not ID) of your AWS KeyPair. You can get a list of KeyNames in your account with this command:
 
 > `aws ec2 describe-key-pairs | jq -r '.KeyPairs[] | .KeyName'`
