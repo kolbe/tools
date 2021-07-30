@@ -25,6 +25,8 @@ color = {
         'terminated':tput('setaf','0'),
         'stopped':tput('setaf','1'),
         'running':tput('setaf','2'),
+        'pending':tput('setaf','3'),
+        'shutting-down':tput('setaf','9'),
         'bold':tput('bold'),
         'reset':tput('sgr0'),
         }
