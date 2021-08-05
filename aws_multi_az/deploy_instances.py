@@ -39,7 +39,7 @@ parser.add_argument('--owner-tag', type=str,
 parser.add_argument('--instances-per-az', type=int,
         help='The number of instances per AZ (default %(default)d)', default=3)
 parser.add_argument('--instance-ami', type=str,
-        help='The EC2 instance AMI to use (default %(default)s)', default='ami-038a0ccaaedae6406')
+        help='The EC2 instance AMI to use (default latest ubuntu-focal-20.04-amd64-server)')
 parser.add_argument('--instance-type', type=str,
         help='The EC2 instance type to use (default %(default)s)', default='m5.2xlarge')
 parser.add_argument('--subnet-offset', type=int,
@@ -176,6 +176,17 @@ sg_ingress_template = {
         }
 ec2.authorize_security_group_ingress(**sg_ingress_template)
 
+if not args.instance_ami:
+    img = ec2.describe_images(
+            Owners=[ '099720109477' ],
+            Filters=[
+                {'Name':'name','Values':[
+                    'ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*' ]}
+            ]
+    )['Images']
+    args.instance_ami =\
+    sorted(img, key=lambda i: i['CreationDate'])[-1]['ImageId']
+ 
 instance_template = {
         'InstanceType': args.instance_type,
         'KeyName': args.key_name ,

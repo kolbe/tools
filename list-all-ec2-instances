@@ -37,7 +37,7 @@ def write(*args):
             arg = arg.encode()
         sys.stdout.buffer.write(arg)
     sys.stdout.buffer.write(color['reset'])
-    print()
+    sys.stdout.buffer.write(b'\n')
 
 ec2 = boto3.client('ec2')
 regions = ec2.describe_regions()
@@ -73,5 +73,4 @@ for region in regions['Regions']:
                 ] + extra))
             if args.print_tags and i.get('Tags'):
                 for t in i.get('Tags'):
-                    print('\t{}: {}'.format(t['Key'], t['Value']))
-
+                    write('-\t{}\t{}'.format(t['Key'], t['Value']))
