@@ -3,11 +3,15 @@
 import argparse
 from collections import defaultdict
 from datetime import datetime
+import decimal
+import json
 import os
 import subprocess
 import sys
 
 import boto3
+
+D = decimal.Decimal
 
 parser = argparse.ArgumentParser(description='List all EC2 instances in all regions')
 
@@ -16,6 +20,71 @@ parser.add_argument('region_prefix', nargs='*')
 
 args = parser.parse_args()
 
+# Class to minimize network chaos when getting pricing information
+# from the 'pricing' API. Basically, this caches price information
+# in a dict so that we do not have to look up the price for the same
+# instance type over and over in a single region.
+class Prices:
+    # The 'pricing' API uses these ridiculous descriptive names
+    # instead of the ubiquitous short names, and I have no idea
+    # where to look up the mapping between them, it's so silly.
+    region_map = {
+            'us-east-2': 'US East (Ohio)',
+            'us-east-1': 'US East (N. Virginia)',
+            'us-west-1': 'US West (N. California)',
+            'us-west-2': 'US West (Oregon)',
+            'af-south-1': 'Africa (Cape Town)',
+            'ap-east-1': 'Asia Pacific (Hong Kong)',
+            'ap-south-1': 'Asia Pacific (Mumbai)',
+            'ap-northeast-3': 'Asia Pacific (Osaka)',
+            'ap-northeast-2': 'Asia Pacific (Seoul)',
+            'ap-southeast-1': 'Asia Pacific (Singapore)',
+            'ap-southeast-2': 'Asia Pacific (Sydney)',
+            'ap-northeast-1': 'Asia Pacific (Tokyo)',
+            'ca-central-1': 'Canada (Central)',
+            'eu-central-1': 'Europe (Frankfurt)',
+            'eu-west-1': 'Europe (Ireland)',
+            'eu-west-2': 'Europe (London)',
+            'eu-south-1': 'Europe (Milan)',
+            'eu-west-3': 'Europe (Paris)',
+            'eu-north-1': 'Europe (Stockholm)',
+            'me-south-1': 'Middle East (Bahrain)',
+            'sa-east-1': 'South America (São Paulo)',
+            }
+    prices={}
+    def __init__(self, region):
+        self.region = region
+        self.region_name = self.region_map[region]
+        self.pricing = boto3.client('pricing', region_name='us-east-1')
+    def price(self, instance_type):
+        if not instance_type in self.prices:
+            try:
+                p = self.pricing.get_products(
+                        ServiceCode='AmazonEC2',
+                        FormatVersion='aws_v1',
+                        Filters=[
+                            { 'Type':'TERM_MATCH', 'Field':'operatingSystem', 'Value':'Linux'},
+                            { 'Type':'TERM_MATCH', 'Field':'operation', 'Value':'RunInstances'},
+                            { 'Type':'TERM_MATCH', 'Field':'capacitystatus', 'Value':'Used'},
+                            { 'Type':'TERM_MATCH', 'Field':'tenancy', 'Value':'Shared'},
+                            { 'Type':'TERM_MATCH', 'Field':'location', 'Value':self.region_name},
+                            { 'Type':'TERM_MATCH', 'Field':'instanceType', 'Value':instance_type},
+                            ]
+                        )
+                if len(p['PriceList']) > 1:
+                    print('Price lookup matched more than one item!')
+                price_details = json.loads(p['PriceList'][0])['terms']['OnDemand']
+                if len(price_details) > 1:
+                    print('Price lookup matched more than one item!')
+                    print(price_details.keys())
+                for px in price_details:
+                    product = price_details[px]
+                for px in product['priceDimensions']:
+                    price = product['priceDimensions'][px]['pricePerUnit']['USD']
+                self.prices[instance_type] = D(price)
+            except KeyError as e:
+                print('Could not find region: {}'.format(e.__traceback__))
+        return(self.prices[instance_type])
 
 def tput(*args):
     p = subprocess.run(['tput'] + list(args), capture_output=True)
@@ -44,6 +113,7 @@ regions = ec2.describe_regions()
 
 for region in regions['Regions']:
     region_name=region['RegionName']
+    prices = Prices(region=region_name)
     if args.region_prefix:
         for p in args.region_prefix:
             if region_name.startswith(p):
@@ -69,6 +139,7 @@ for region in regions['Regions']:
                 i.get('KeyName','<nokey>'),
                 i['InstanceId'],
                 i['InstanceType'],
+                '$'+str(prices.price(i['InstanceType']).quantize(D('1.01'))),
                 i['State']['Name'],
                 ] + extra))
             if args.print_tags and i.get('Tags'):
