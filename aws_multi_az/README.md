@@ -58,3 +58,9 @@ You are responsible for getting an SSH key onto the management node that will al
 You are also responsible for copying `topology.yaml` onto the management node, and then using `tiup cluster check/deploy/start` to create your cluster.
 
 `terminate_instanes.py` will terminate all instances and delete all subnets and security groups with their Name tag set to the value of the `CLUSTER_NAME` environment variable.
+
+haproxy:
+
+```
+tiup cluster display test --json | jq -r '.instances[]|select(.role=="tidb") | .id' | { id=1; while read -r host; do echo "    server tidb-$((id++)) $host check"; done; } >> haproxy.conf
+```

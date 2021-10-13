@@ -16,8 +16,9 @@ print('Deleting resources for CLUSTER_NAME={}'.format(cluster_name))
 cluster_name_filter=[ {'Name':'tag:Name', 'Values':[cluster_name]} ]
 
 instances = ec2.describe_instances(
-        Filters=cluster_name_filter +
-            [{'Name':'instance-state-name', 'Values':['running']}])
+        Filters=cluster_name_filter
+            # [{'Name':'instance-state-name', 'Values':['running']}]
+            )
 instance_ids=[]
 for r in instances['Reservations']:
     for i in r['Instances']:

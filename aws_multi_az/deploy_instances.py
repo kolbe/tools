@@ -241,3 +241,4 @@ for k in sorted(instance_details.keys()):
             instance['Placement']['AvailabilityZone']))
 
 print('export CLUSTER_NAME={}'.format(args.cluster_name))
+print()
