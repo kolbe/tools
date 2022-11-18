@@ -2,8 +2,19 @@
 import ipaddress, os, sys
 from collections import defaultdict
 
+import argparse
+
 import boto3
 import yaml
+import json
+
+parser = argparse.ArgumentParser(description='Build topology.yaml file')
+
+parser.add_argument('-o', '--operating-system', type=str,
+        help='The operating system type, of: [ ubuntu , centos ]',
+        default='ubuntu')
+
+args = parser.parse_args()
 
 if os.getenv('CLUSTER_NAME'):
     cluster_name = os.getenv('CLUSTER_NAME')
@@ -45,13 +56,16 @@ template = yaml.safe_load(template_yaml)
 def host(instance, **kwargs):
     return {'host':instance['PrivateIpAddress'], **kwargs}
 
-management_node=''
+management_node={}
 for k in sorted(instance_details.keys()):
     for i, instance in enumerate(sorted(instance_details[k], key=lambda x: ipaddress.ip_address(x['PrivateIpAddress']))):
         # First node will be our "management node", where TiUP and monitoring will be installed
-        if management_node == '':
+        if not management_node:
             for section in ['monitoring_servers', 'grafana_servers', 'alertmanager_servers']:
-                management_node = instance['PublicIpAddress']
+                management_node = {
+                    'public_ip': instance['PublicIpAddress']
+                  , 'ec2_id': instance['InstanceId']
+                }
                 template[section].append(host(instance))
         # After management node is defined, the "first" node in each AZ will be a tidb/pd node
         elif i==0:
@@ -61,6 +75,34 @@ for k in sorted(instance_details.keys()):
         else:
             template['tikv_servers'].append(host(instance, config={'server.labels': {'zone': instance['Placement']['AvailabilityZone']}}))
 
+username = ''
+if args.operating_system == 'ubuntu':
+    username = 'ubuntu'
+elif args.operating_system == 'centos':
+    username = 'ec2-user'
+else:
+    username = args.operating_system
+    print('Unsupported OS: {0} - please check global settings: [ user , deploy_dir , data_dir ]'.format(args.operating_system))
+
+template['global']['user'] = username
+template['global']['deploy_dir'] = '/home/{0}/tidb-deploy'.format(username)
+template['global']['data_dir'] = '/home/{0}/tidb-data'.format(username)
+
 print(yaml.dump(template))
+
+print('scp topology.yaml {0}@{1}:~'.format(username, management_node['public_ip']), file=sys.stderr)
+print("\n")
+
 print('echo \'curl --proto =https --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh\' |', file=sys.stderr)
-print('ssh -o StrictHostKeyChecking=accept-new {}@{}'.format('ubuntu', management_node), file=sys.stderr)
+print('ssh -o StrictHostKeyChecking=accept-new {}@{}'.format(username, management_node['public_ip']), file=sys.stderr)
+print("\n")
+
+print('rsync -av ~/.ssh {0}@{1}:~'.format(username, management_node['public_ip']), file=sys.stderr)
+print('rsync -av ~/.aws {0}@{1}:~'.format(username, management_node['public_ip']), file=sys.stderr)
+print("\n")
+
+print('echo \'wget https://download.pingcap.org/tidb-toolkit-v5.2.1-linux-amd64.tar.gz\' |', file=sys.stderr)
+print('ssh -o StrictHostKeyChecking=accept-new {}@{}'.format(username, management_node['public_ip']), file=sys.stderr)
+print("\n")
+
+print('Management node ec2 instance id: [{0}]'.format(management_node['ec2_id']), file=sys.stderr)
