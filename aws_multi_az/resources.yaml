@@ -1,0 +1,74 @@
+alertmanager_servers:
+- host: 10.0.21.31
+global:
+  data_dir: /home/ubuntu/tidb-data
+  deploy_dir: /home/ubuntu/tidb-deploy
+  ssh_port: 22
+  user: ubuntu
+grafana_servers:
+- host: 10.0.21.31
+monitoring_servers:
+- host: 10.0.21.31
+pd_servers:
+- host: 10.0.22.9
+- host: 10.0.23.98
+- host: 10.0.24.59
+server_configs:
+  pd:
+    replication.location-labels:
+    - zone
+tidb_servers:
+- host: 10.0.22.9
+- host: 10.0.23.98
+- host: 10.0.24.59
+tiflash_servers: []
+tikv_servers:
+- config:
+    server.labels:
+      zone: us-west-2a
+  host: 10.0.21.75
+- config:
+    server.labels:
+      zone: us-west-2a
+  host: 10.0.21.158
+- config:
+    server.labels:
+      zone: us-west-2a
+  host: 10.0.21.181
+- config:
+    server.labels:
+      zone: us-west-2b
+  host: 10.0.22.145
+- config:
+    server.labels:
+      zone: us-west-2b
+  host: 10.0.22.208
+- config:
+    server.labels:
+      zone: us-west-2b
+  host: 10.0.22.233
+- config:
+    server.labels:
+      zone: us-west-2c
+  host: 10.0.23.142
+- config:
+    server.labels:
+      zone: us-west-2c
+  host: 10.0.23.152
+- config:
+    server.labels:
+      zone: us-west-2c
+  host: 10.0.23.236
+- config:
+    server.labels:
+      zone: us-west-2d
+  host: 10.0.24.168
+- config:
+    server.labels:
+      zone: us-west-2d
+  host: 10.0.24.224
+- config:
+    server.labels:
+      zone: us-west-2d
+  host: 10.0.24.228
+

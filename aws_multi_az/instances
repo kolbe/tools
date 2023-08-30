@@ -1,0 +1,43 @@
+Creating cluster kolbe-tiup-multi-az-1629909606
+vpc-0ab54a5ca78a3b54d (from command-line option)
+subnet-0195e6c0d04c4969d
+subnet-06a80e7ed5272673b
+subnet-0e3717b316cb59567
+subnet-024704ab7933f7a2e
+sg-089c4f29c5ace4de4
+i-03f89747c3406b91b
+i-0022a4a4ddbe1ff4e
+i-048c5eef6ae4398b1
+i-004d7f5d3986a3209
+i-03d3e47662448e6b0
+i-0a9ecd432aa37fa3b
+i-05f80130bb136aefb
+i-0751bfd783b4c7e99
+i-0561b4a83d71fe929
+i-02e041ff10d6303a1
+i-0442c81bb754ea8eb
+i-0bb18dcfaf8aecb72
+i-08bc4568cf2c2eb34
+i-07a8cb999c76c69d9
+i-01a77776689688ae3
+i-00e43fd32acef6525
+Waiting for all instances to be "running"...
+Instances of cluster "kolbe-tiup-multi-az-1629909606" deployed!
+10.0.21.31	18.236.197.161	i-03f89747c3406b91b	us-west-2a
+10.0.21.75	34.219.239.185	i-004d7f5d3986a3209	us-west-2a
+10.0.21.158	54.191.188.98	i-048c5eef6ae4398b1	us-west-2a
+10.0.21.181	54.214.122.161	i-0022a4a4ddbe1ff4e	us-west-2a
+10.0.22.9	34.220.113.28	i-0a9ecd432aa37fa3b	us-west-2b
+10.0.22.145	18.236.86.167	i-0751bfd783b4c7e99	us-west-2b
+10.0.22.208	34.217.66.21	i-05f80130bb136aefb	us-west-2b
+10.0.22.233	34.209.241.234	i-03d3e47662448e6b0	us-west-2b
+10.0.23.98	34.208.210.140	i-0bb18dcfaf8aecb72	us-west-2c
+10.0.23.142	35.167.20.77	i-0561b4a83d71fe929	us-west-2c
+10.0.23.152	52.13.71.221	i-0442c81bb754ea8eb	us-west-2c
+10.0.23.236	34.213.0.210	i-02e041ff10d6303a1	us-west-2c
+10.0.24.59	44.234.60.69	i-01a77776689688ae3	us-west-2d
+10.0.24.168	44.242.151.252	i-07a8cb999c76c69d9	us-west-2d
+10.0.24.224	35.84.200.59	i-08bc4568cf2c2eb34	us-west-2d
+10.0.24.228	34.223.93.187	i-00e43fd32acef6525	us-west-2d
+export CLUSTER_NAME=kolbe-tiup-multi-az-1629909606
+

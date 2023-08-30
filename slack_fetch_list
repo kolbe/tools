@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -x
 # Fetch list of various types of objects from Slack API
 # Copyright (C) 2015 Kolbe Kegel <kolbe@kolbekegel.com>
 # 
@@ -39,7 +40,7 @@ type jq &>/dev/null || abort "you don't appear to have the jq tool: http://stedo
 for arg; do 
 
     case $arg in
-        c*) object=channels; filter='.channels[] | .name+":"+.id' ;;
+        chan*|conv*) object=conversations; filter='.channels[] | .name+":"+.id' ;;
         u*) object=users; filter='.members[] | .id+":"+.name+":"+.profile.email+":"+.profile.display_name+":"+.profile.real_name' ;;
         g*) object=groups; filter='.groups[] | .name+":"+.id' ;;
         *) abort "unknown object type '$1'";;
@@ -48,10 +49,11 @@ for arg; do
     slack_api_cmd(){
         local cursor= temp=
         while true; do
-            temp=$( curl --silent "https://slack.com/api/$object.list?token=${SLACK_API_TOKEN:?}&cursor=$cursor" ) || return
-            cursor=$( jq .response_metadata.next_cursor <<<"$temp" )
+            temp=$( curl -H "" --silent "https://slack.com/api/$object.list?token=${SLACK_API_TOKEN:?}&cursor=$cursor" ) || return
+            if jq -e '.error == "ratelimited"' <<<"$temp" >/dev/null; then sleep 1; continue; fi
+            cursor=$( jq -r .response_metadata.next_cursor <<<"$temp" )
             jq -r -e 'if .ok==true then '"$filter"' else error(.error) end' 2>&1 <<<"$temp" || return
-            [[ $cursor = null ]] && break
+            if [[ $cursor = null ]] || [[ -z $cursor ]]; then break; fi
         done
         # maybe a future version of jq will provide some other mechanism for this, but
         # i needed to force jq to exit with a non-zero exit code if the fetch from the API failed

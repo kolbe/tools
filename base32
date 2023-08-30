@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import hashlib
 import sys
 
@@ -20,8 +20,8 @@ def encode(string):
         v= num & 31
         #if i and i % 4 == 0: o+= '-'
         o= encode[v] + o
-        print num
-        print o
+        print(num)
+        print(o)
         num=num>>5
         i+=1
 
@@ -40,8 +40,8 @@ def decode(string):
     result=0
 
     for c in string:#[::-1]:
-        print result
-        print c
+        print(result)
+        print(c)
         if c=='-': continue
         result = result << 5
         result += decode[c.lower()]
@@ -51,7 +51,7 @@ def decode(string):
     return decoded
 
 if sys.argv[1] == '-d':
-    print decode(sys.argv[2])
+    print(decode(sys.argv[2]))
 else:
     if sys.argv[1] == '-e': sys.argv.pop(1)
-    print encode(sys.argv[1])
+    print(encode(sys.argv[1]))

@@ -1,0 +1,2 @@
+sudo apt update
+sudo apt install -y vim mariadb-client jq haproxy
